@@ -103,20 +103,20 @@ export function evaluatePath(publications, revisions, goodYears, policy, raises,
   if(publications.length!==revisions.length||publications.length-goodYears.length<policy.window-1)throw new Error('Each research history must include a complete opening review window.');
   const offset = publications.length - goodYears.length, prefix = new Float64Array(publications.length + 1), revisionPrefix=new Float64Array(revisions.length+1);
   for(let i=0;i<publications.length;i++) {prefix[i+1]=prefix[i]+publications[i];revisionPrefix[i+1]=revisionPrefix[i]+revisions[i];}
-  let salary = base, extra = 0;
+  let salary = base, totalEarnings = 0;
   for(let t=0;t<goodYears.length;t++) {
     const end = offset + t + 1, total = prefix[end] - prefix[end - policy.window], revisionTotal=revisionPrefix[end]-revisionPrefix[end-policy.window];
     const level = reviewLevel(total,revisionTotal,policy.rules);
     salary *= 1 + raises[goodYears[t] ? 'good' : 'bad'][level] / 100;
-    extra += salary - base;
+    totalEarnings += salary;
   }
-  return {ending:100 * (salary / base - 1), cumulative:extra};
+  return {ending:100 * (salary / base - 1), cumulative:totalEarnings};
 }
 export function researcherTypes(config) {
   const {mean,sd,revisionMean,revisionSd}=config,multiplier=config.highMultiplier??2;
   return [
-    {key:'low',label:'Low',mean,sd,revisionMean,revisionSd},
-    {key:'high',label:'High',mean:mean*multiplier,sd:sd*multiplier,revisionMean:revisionMean*multiplier,revisionSd:revisionSd*multiplier}
+    {key:'low',label:'Average',mean,sd,revisionMean,revisionSd},
+    {key:'high',label:'Star',mean:mean*multiplier,sd:sd*multiplier,revisionMean:revisionMean*multiplier,revisionSd:revisionSd*multiplier}
   ];
 }
 export function validate(config, policies) {
@@ -125,9 +125,9 @@ export function validate(config, policies) {
   if(!Number.isFinite(base)||base<=0||base>10000000) throw new Error('Enter a starting salary greater than 0 and no more than 10,000,000.');
   if(mean>30||sd>30||revisionMean>30||revisionSd>30) throw new Error('Research output means and standard deviations must be no more than 30.');
   const multiplier=config.highMultiplier??2;
-  if(!Number.isFinite(multiplier)||multiplier<1||multiplier>10)throw new Error('Use a high-type multiplier between 1 and 10.');
+  if(!Number.isFinite(multiplier)||multiplier<1||multiplier>10)throw new Error('Use a Star multiplier between 1 and 10.');
   for(const type of researcherTypes(config)) {
-    try{countModel(type.mean,type.sd,`${type.label}-type publication`);countModel(type.revisionMean,type.revisionSd,`${type.label}-type R&R`);}
+    try{countModel(type.mean,type.sd,`${type.label} publication`);countModel(type.revisionMean,type.revisionSd,`${type.label} R&R`);}
     catch(error){throw new Error(`${type.label} researcher: ${error.message}`);}
   }
   if(!Number.isFinite(goodProbability)||goodProbability<0||goodProbability>1) throw new Error('The good-year probability must be between 0% and 100%.');
@@ -184,15 +184,15 @@ export function simulate(config, policies) {
     for(const result of results) {
       let lowFinalSalary;
       for(let i=0;i<types.length;i++) {
-        const {prefix,revisionPrefix}=types[i],outcome=result.types[i];let salary=base,extra=0;
+        const {prefix,revisionPrefix}=types[i],outcome=result.types[i];let salary=base,totalEarnings=0;
         for(let t=0;t<years;t++) {
           const end=warmup+t+1,total=prefix[end]-prefix[end-result.window],revisionTotal=revisionPrefix[end]-revisionPrefix[end-result.window];
           const level=reviewLevel(total,revisionTotal,result.rules);outcome.levelCounts[level]++;
           if(i===0)lowLevels[t]=level;
           else result.comparison[level>lowLevels[t]?'higher':level===lowLevels[t]?'tied':'lower']++;
-          salary*=1+raises[goodYears[t]?'good':'bad'][level]/100;extra+=salary-base;
+          salary*=1+raises[goodYears[t]?'good':'bad'][level]/100;totalEarnings+=salary;
         }
-        outcome.ending[n]=100*(salary/base-1);outcome.cumulative[n]=extra;
+        outcome.ending[n]=100*(salary/base-1);outcome.cumulative[n]=totalEarnings;
         if(i===0)lowFinalSalary=salary;
         else result.salaryComparison[compareFinalSalaries(lowFinalSalary,salary)]++;
       }

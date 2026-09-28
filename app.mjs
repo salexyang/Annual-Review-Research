@@ -45,31 +45,31 @@ const typeColors=['#4263df','#138273'];
 function updateHighSummary(){
  const config=readConfig(),multiple=config.highMultiplier;
  const format=n=>Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:2}):'—';
- $('high-type-summary').innerHTML=`<strong>High-type annual parameters</strong><span>Publications: mean ${format(config.mean*multiple)}, SD ${format(config.sd*multiple)}</span><span>R&Rs: mean ${format(config.revisionMean*multiple)}, SD ${format(config.revisionSd*multiple)}</span>`;
+ $('high-type-summary').innerHTML=`<strong>Star annual parameters</strong><span>Publications: mean ${format(config.mean*multiple)}, SD ${format(config.sd*multiple)}</span><span>R&Rs: mean ${format(config.revisionMean*multiple)}, SD ${format(config.revisionSd*multiple)}</span>`;
 }
 function statsTable(p,rows){
- return `<table class="type-stats" aria-label="${escape(p.name)} low and high researcher statistics"><thead><tr><th scope="col">Measure</th>${p.types.map((type,i)=>`<th scope="col" class="type-${type.key}"><span class="type-swatch" style="background:${typeColors[i]}"></span>${type.label}</th>`).join('')}</tr></thead><tbody>${rows.map((row,i)=>`<tr ${i===0?'class="primary-stat"':''}><th scope="row">${row.label}</th>${p.types.map(type=>`<td class="type-${type.key}" title="${escape(row.title?row.title(type):row.value(type))}">${row.value(type)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+ return `<table class="type-stats" aria-label="${escape(p.name)} Average and Star researcher statistics"><thead><tr><th scope="col">Measure</th>${p.types.map((type,i)=>`<th scope="col" class="type-${type.key}"><span class="type-swatch" style="background:${typeColors[i]}"></span>${type.label}</th>`).join('')}</tr></thead><tbody>${rows.map((row,i)=>`<tr ${i===0?'class="primary-stat"':''}><th scope="row">${row.label}</th>${p.types.map(type=>`<td class="type-${type.key}" title="${escape(row.title?row.title(type):row.value(type))}">${row.value(type)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 function classificationSection(p,index,config){
  const rows=[{label:'Mean level',value:t=>t.stats.classification.mean.toFixed(2)},{label:'Standard deviation',value:t=>t.stats.classification.sd.toFixed(2)},{label:'Assessments',value:t=>t.stats.classification.total.toLocaleString()}];
  return `<section class="outcome-section classification-section"><h4>Review classification · levels 1–5</h4>${statsTable(p,rows)}<div class="chart" data-metric="classification" data-policy-index="${index}"></div><p class="chart-note">${config.trials.toLocaleString()} histories × ${config.years} years per type. SD is in review levels.</p></section>`;
 }
 function comparisonSection(p,config,salary=false){
- const c=salary?p.salaryComparison:p.comparison,labels=['High > low','Tie','Low > high'],keys=['higher','tied','lower'];
- const title=salary?'High type ends with a higher salary':'High type receives a higher evaluation';
+ const c=salary?p.salaryComparison:p.comparison,labels=['Star > Average','Tie','Average > Star'],keys=['higher','tied','lower'];
+ const title=salary?'Star ends with a higher salary':'Star receives a higher evaluation over a year';
  const unit=salary?'researcher pairs':'annual review pairs';
  return `<section class="evaluation-comparison ${salary?'salary-comparison':''}" aria-label="${escape(p.name)} ${salary?'final salary':'evaluation'} comparison"><h4>${title}</h4><div class="comparison-value">${pct(c.higherShare*100)}</div><div class="comparison-bar" aria-hidden="true">${keys.map(key=>`<span class="comparison-${key}" style="width:${c[key+'Share']*100}%"></span>`).join('')}</div><dl class="comparison-breakdown">${keys.map((key,i)=>`<div><dt>${labels[i]}</dt><dd title="${c[key].toLocaleString()} ${unit}">${pct(c[key+'Share']*100)}</dd></div>`).join('')}</dl><p class="chart-note">${salary?`Final annual salary at year ${config.years} · `:''}${c.total.toLocaleString()} ${unit}. Ties do not count as higher.</p></section>`;
 }
 function salarySection(p,index,config,key){
  const growth=key==='ending',format=growth?pct:shortMoney,fullFormat=growth?pct:money;
- const rows=[{label:growth?'Mean growth':'Mean extra pay',value:t=>format(t.stats[key].mean),title:t=>fullFormat(t.stats[key].mean)},{label:'Median',value:t=>format(t.stats[key].median),title:t=>fullFormat(t.stats[key].median)},{label:'Standard deviation',value:t=>growth?`${t.stats[key].sd.toFixed(1)} pp`:shortMoney(t.stats[key].sd),title:t=>growth?`${t.stats[key].sd.toFixed(1)} percentage points`:money(t.stats[key].sd)},{label:'10th percentile',value:t=>format(t.stats[key].p10),title:t=>fullFormat(t.stats[key].p10)},{label:'90th percentile',value:t=>format(t.stats[key].p90),title:t=>fullFormat(t.stats[key].p90)}];
+ const rows=[{label:growth?'Mean growth':'Mean earnings',value:t=>format(t.stats[key].mean),title:t=>fullFormat(t.stats[key].mean)},{label:'Median',value:t=>format(t.stats[key].median),title:t=>fullFormat(t.stats[key].median)},{label:'Standard deviation',value:t=>growth?`${t.stats[key].sd.toFixed(1)} pp`:shortMoney(t.stats[key].sd),title:t=>growth?`${t.stats[key].sd.toFixed(1)} percentage points`:money(t.stats[key].sd)},{label:'10th percentile',value:t=>format(t.stats[key].p10),title:t=>fullFormat(t.stats[key].p10)},{label:'90th percentile',value:t=>format(t.stats[key].p90),title:t=>fullFormat(t.stats[key].p90)}];
  if(growth)rows.push({label:'Mean final salary',value:t=>shortMoney(config.base*(1+t.stats.ending.mean/100)),title:t=>money(config.base*(1+t.stats.ending.mean/100))});
- return `<section class="outcome-section"><h4>${growth?`Final salary growth · year ${config.years}`:`Total extra earnings · ${config.years} years`}</h4>${statsTable(p,rows)}<div class="chart" data-metric="${key}" data-policy-index="${index}"></div><p class="chart-note">${growth?'Growth from the same starting salary.':`Extra pay above ${money(config.base*config.years)} in unchanged salary.`} Hover or tap bars for details.</p></section>`;
+ return `<section class="outcome-section"><h4>${growth?`Final salary growth · year ${config.years}`:`Total earnings - ${config.years} ${config.years===1?'year':'years'}`}</h4>${statsTable(p,rows)}<div class="chart" data-metric="${key}" data-policy-index="${index}"></div><p class="chart-note">${growth?'Growth from the same starting salary.':`Sum of all annual salaries over ${config.years} ${config.years===1?'year':'years'}, including base pay.`} Hover or tap bars for details.</p></section>`;
 }
 function renderResults(){
  const {results,config,researchers}=lastRun;$('policy-results').style.setProperty('--policy-count',results.length);
- $('policy-results').innerHTML=results.map((p,index)=>`<article class="result-column" style="--policy-color:${p.color}" aria-label="${escape(p.name)} results"><header class="result-heading"><h3><span class="result-letter">${String.fromCharCode(65+index)}</span>${escape(p.name)}</h3><p>${p.window===1?'Current-year totals':`${p.window}-year rolling totals`} · Annual salary review</p><div class="type-legend">${p.types.map((type,i)=>`<span><i class="type-swatch" style="background:${typeColors[i]}"></i>${type.label} type${i?` · ${config.highMultiplier}× mean & SD`:''}</span>`).join('')}</div></header>${comparisonSection(p,config)}${comparisonSection(p,config,true)}${classificationSection(p,index,config)}${salarySection(p,index,config,'ending')}${salarySection(p,index,config,'cumulative')}</article>`).join('');
- $('count-model-description').textContent=researchers.map(t=>`${t.label} type: publications use the ${t.modelName.toLowerCase()}; R&Rs use the ${t.revisionModelName.toLowerCase()}.`).join(' ');
+ $('policy-results').innerHTML=results.map((p,index)=>`<article class="result-column" style="--policy-color:${p.color}" aria-label="${escape(p.name)} results"><header class="result-heading"><h3><span class="result-letter">${String.fromCharCode(65+index)}</span>${escape(p.name)}</h3><p>${p.window===1?'Current-year totals':`${p.window}-year rolling totals`} · Annual salary review</p><div class="type-legend">${p.types.map((type,i)=>`<span><i class="type-swatch" style="background:${typeColors[i]}"></i>${type.label}${i?` · ${config.highMultiplier}× mean & SD`:''}</span>`).join('')}</div></header>${comparisonSection(p,config)}${classificationSection(p,index,config)}<section class="final-salary-group" aria-label="${escape(p.name)} final salary comparison and distribution">${comparisonSection(p,config,true)}${salarySection(p,index,config,'ending')}</section>${salarySection(p,index,config,'cumulative')}</article>`).join('');
+ $('count-model-description').textContent=researchers.map(t=>`${t.label}: publications use the ${t.modelName.toLowerCase()}; R&Rs use the ${t.revisionModelName.toLowerCase()}.`).join(' ');
  renderCharts();
 }
 function renderCharts(){
@@ -82,8 +82,8 @@ function renderCharts(){
   document.querySelectorAll(`[data-metric="${metric}"]`).forEach(container=>{
    const pi=+container.dataset.policyIndex,p=results[pi],format=metric==='ending'?pct:money;
    const chartWidth=Math.max(230,container.clientWidth),chartHeight=235,left=39,right=6,top=27,bottom=44,plotWidth=chartWidth-left-right,plotHeight=chartHeight-top-bottom,slot=plotWidth/bins;
-   const y=value=>top+plotHeight*(1-value/yMax),svg=[],metricLabel=discrete?'review levels':metric==='ending'?'final salary growth':'total extra earnings';
-   const description=discrete?p.types.map((t,i)=>`${t.label}: ${t.levelCounts.map((count,b)=>`level ${b+1} ${(count/denominator*100).toFixed(1)}%`).join(', ')}`).join('; '):'Low and high types use the same bins and scales across policies.';
+   const y=value=>top+plotHeight*(1-value/yMax),svg=[],metricLabel=discrete?'review levels':metric==='ending'?'final salary growth':'total earnings';
+   const description=discrete?p.types.map((t,i)=>`${t.label}: ${t.levelCounts.map((count,b)=>`level ${b+1} ${(count/denominator*100).toFixed(1)}%`).join(', ')}`).join('; '):'Average and Star researchers use the same bins and scales across policies.';
    svg.push(`<svg viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${escape(p.name)}: ${metricLabel} histogram. ${escape(description)}"><text x="${left}" y="13" class="axis-caption">Share of ${discrete?'annual reviews':'histories'}</text>`);
    for(let i=0;i<=4;i++){const value=yMax*i/4,pos=y(value);svg.push(`<line x1="${left}" x2="${chartWidth-right}" y1="${pos}" y2="${pos}" stroke="#e7ecf3" ${i?'stroke-dasharray="3 4"':''}/><text x="${left-7}" y="${pos+4}" text-anchor="end">${value%1?value.toFixed(1):value}%</text>`);}
    for(let b=0;b<bins;b++)for(let type=0;type<2;type++){
@@ -94,12 +94,12 @@ function renderCharts(){
    }
    if(discrete)for(let b=0;b<bins;b++)svg.push(`<text x="${left+(b+.5)*slot}" y="${chartHeight-25}" text-anchor="middle">${b+1}</text>`);
    else {const ticks=chartWidth<330?2:3;for(let i=0;i<=ticks;i++){const value=min+(max-min)*i/ticks;svg.push(`<text x="${left+plotWidth*i/ticks}" y="${chartHeight-25}" text-anchor="${i===0?'start':i===ticks?'end':'middle'}">${metric==='ending'?compactPercent(value):shortMoney(value)}</text>`);}}
-   svg.push(`<text x="${left+plotWidth/2}" y="${chartHeight-3}" text-anchor="middle" class="axis-caption">${discrete?'Review level':metric==='ending'?'Final salary growth (%)':'Total extra earnings ($)'}</text></svg><div class="chart-tooltip" hidden></div>`);container.innerHTML=svg.join('');
+   svg.push(`<text x="${left+plotWidth/2}" y="${chartHeight-3}" text-anchor="middle" class="axis-caption">${discrete?'Review level':metric==='ending'?'Final salary growth (%)':'Total earnings ($)'}</text></svg><div class="chart-tooltip" hidden></div>`);container.innerHTML=svg.join('');
    const tooltip=container.querySelector('.chart-tooltip');
    function showTooltip(event){
     const bar=event.target.closest('[data-bin]');if(!bar){tooltip.hidden=true;return;}
     const b=+bar.dataset.bin,type=+bar.dataset.type,count=counts[pi*2+type][b],range=discrete?`Level ${b+1}`:`${format(min+b*width)} – ${format(min+(b+1)*width)}`;
-    tooltip.innerHTML=`<strong>${p.types[type].label} type · ${range}</strong><br>${(count/denominator*100).toFixed(2)}% · ${count.toLocaleString()} ${discrete?'assessments':'histories'}`;
+    tooltip.innerHTML=`<strong>${p.types[type].label} · ${range}</strong><br>${(count/denominator*100).toFixed(2)}% · ${count.toLocaleString()} ${discrete?'assessments':'histories'}`;
     tooltip.hidden=false;const bounds=container.getBoundingClientRect();tooltip.style.left=`${Math.max(0,Math.min(event.clientX-bounds.left+8,bounds.width-tooltip.offsetWidth))}px`;tooltip.style.top=`${Math.max(0,event.clientY-bounds.top-tooltip.offsetHeight-8)}px`;
    }
    container.onpointermove=showTooltip;container.onclick=showTooltip;container.onpointerleave=()=>tooltip.hidden=true;
