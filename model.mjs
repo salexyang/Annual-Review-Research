@@ -113,10 +113,10 @@ export function evaluatePath(publications, revisions, goodYears, policy, raises,
   return {ending:100 * (salary / base - 1), cumulative:totalEarnings};
 }
 export function researcherTypes(config) {
-  const {mean,sd,revisionMean,revisionSd}=config,multiplier=config.highMultiplier??2;
+  const {mean,sd,revisionMean,revisionSd}=config,meanMultiplier=config.meanMultiplier??2,sdMultiplier=config.sdMultiplier??2;
   return [
     {key:'low',label:'Average',mean,sd,revisionMean,revisionSd},
-    {key:'high',label:'Star',mean:mean*multiplier,sd:sd*multiplier,revisionMean:revisionMean*multiplier,revisionSd:revisionSd*multiplier}
+    {key:'high',label:'Alternative',mean:mean*meanMultiplier,sd:sd*sdMultiplier,revisionMean:revisionMean*meanMultiplier,revisionSd:revisionSd*sdMultiplier}
   ];
 }
 export function validate(config, policies) {
@@ -124,8 +124,9 @@ export function validate(config, policies) {
   if(!Number.isInteger(years)||years<1||years>40) throw new Error('Enter a time horizon from 1 to 40 whole years.');
   if(!Number.isFinite(base)||base<=0||base>10000000) throw new Error('Enter a starting salary greater than 0 and no more than 10,000,000.');
   if(mean>30||sd>30||revisionMean>30||revisionSd>30) throw new Error('Research output means and standard deviations must be no more than 30.');
-  const multiplier=config.highMultiplier??2;
-  if(!Number.isFinite(multiplier)||multiplier<1||multiplier>10)throw new Error('Use a Star multiplier between 1 and 10.');
+  for(const [label,multiplier] of [['mean',config.meanMultiplier??2],['standard deviation',config.sdMultiplier??2]]) {
+    if(!Number.isFinite(multiplier)||multiplier<1||multiplier>10)throw new Error(`Use an Alternative ${label} multiplier between 1 and 10.`);
+  }
   for(const type of researcherTypes(config)) {
     try{countModel(type.mean,type.sd,`${type.label} publication`);countModel(type.revisionMean,type.revisionSd,`${type.label} R&R`);}
     catch(error){throw new Error(`${type.label} researcher: ${error.message}`);}
@@ -167,7 +168,7 @@ export function simulate(config, policies) {
   const {years,base,trials,seed,raises,goodProbability}=config;
   // Independent output streams across types; the low streams retain their
   // previous seeds. Both types share economic conditions. Neither policy order
-  // nor the high-type multiplier changes the low-type paths.
+  // nor the Alternative multipliers change the Average paths.
   const salts=[[0xA341316C,0xAD90777D,0x7E95761E,0x9E3779B9],[0x3C6EF372,0xBB67AE85,0x510E527F,0x1F83D9AB]];
   const warmup=39,goodYears=new Uint8Array(years),yearRng=randomSource(seed ^ 0xC8013EA4);
   const types=researcherTypes(config).map((type,i)=>({...type,model:countModel(type.mean,type.sd),revisionModel:countModel(type.revisionMean,type.revisionSd,'R&R'),rng:salts[i].map(salt=>randomSource(seed^salt)),prefix:new Float64Array(warmup+years+1),revisionPrefix:new Float64Array(warmup+years+1)}));

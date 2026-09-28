@@ -19,9 +19,9 @@ function markDirty(){revision++;if(lastRun){$('run-status').textContent='Inputs 
 $('policy-cards').addEventListener('input',event=>{const card=event.target.closest('[data-policy]');if(!card)return;const p=policies.find(x=>x.id===+card.dataset.policy),field=event.target.dataset.field;if(field)p[field]=field==='window'?(event.target.value===''?NaN:+event.target.value):event.target.value;if(event.target.dataset.rule!==undefined){const rule=p.rules[+event.target.dataset.rule],key=event.target.dataset.ruleField;rule[key]=key==='minimum'?(event.target.value===''?NaN:+event.target.value):event.target.value;}card.querySelector('.window-description').textContent=windowDescription(p);});
 $('policy-cards').addEventListener('click',event=>{const button=event.target.closest('[data-delete]');if(!button||policies.length===1)return;policies=policies.filter(p=>p.id!==+button.dataset.delete);renderPolicies();markDirty();});
 $('add-policy').addEventListener('click',()=>{if(policies.length>=4)return;const source=policies[policies.length-1],id=nextId++,color=palette.find(c=>!policies.some(p=>p.color===c));policies.push({...source,id,name:`Policy ${String.fromCharCode(64+id)}`,rules:structuredClone(source.rules),color});renderPolicies();markDirty();document.querySelector(`[data-policy="${id}"] .policy-name`).focus();});
-$('scenario-form').addEventListener('input',event=>{updateHighSummary();if(event.target.id==='good')$('good-output').textContent=`${event.target.value}%`;markDirty();});
+$('scenario-form').addEventListener('input',event=>{updateAlternativeSummary();if(event.target.id==='good')$('good-output').textContent=`${event.target.value}%`;markDirty();});
 const numeric=id=>$(id).value===''?NaN:Number($(id).value);
-function readConfig(){return{highMultiplier:numeric('high-multiplier'),years:numeric('years'),base:numeric('base'),goodProbability:numeric('good')/100,mean:numeric('mean'),sd:numeric('sd'),revisionMean:numeric('revision-mean'),revisionSd:numeric('revision-sd'),trials:numeric('trials'),raises:{bad:Array.from({length:5},(_,i)=>numeric(`bad-${i}`)),good:Array.from({length:5},(_,i)=>numeric(`good-${i}`))}};}
+function readConfig(){return{meanMultiplier:numeric('mean-multiplier'),sdMultiplier:numeric('sd-multiplier'),years:numeric('years'),base:numeric('base'),goodProbability:numeric('good')/100,mean:numeric('mean'),sd:numeric('sd'),revisionMean:numeric('revision-mean'),revisionSd:numeric('revision-sd'),trials:numeric('trials'),raises:{bad:Array.from({length:5},(_,i)=>numeric(`bad-${i}`)),good:Array.from({length:5},(_,i)=>numeric(`good-${i}`))}};}
 function freshSeed(){
  const draw=new Uint32Array(1);let seed;
  do{crypto.getRandomValues(draw);seed=draw[0]&0x7fffffff;}while(seed===0||seed===previousSeed);
@@ -42,21 +42,21 @@ async function run(){
 }
 $('scenario-form').addEventListener('submit',event=>{event.preventDefault();run();});
 const typeColors=['#4263df','#138273'];
-function updateHighSummary(){
- const config=readConfig(),multiple=config.highMultiplier;
+function updateAlternativeSummary(){
+ const config=readConfig();
  const format=n=>Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:2}):'—';
- $('high-type-summary').innerHTML=`<strong>Star annual parameters</strong><span>Publications: mean ${format(config.mean*multiple)}, SD ${format(config.sd*multiple)}</span><span>R&Rs: mean ${format(config.revisionMean*multiple)}, SD ${format(config.revisionSd*multiple)}</span>`;
+ $('alternative-type-summary').innerHTML=`<strong>Alternative annual parameters</strong><span>Publications: mean ${format(config.mean*config.meanMultiplier)}, SD ${format(config.sd*config.sdMultiplier)}</span><span>R&Rs: mean ${format(config.revisionMean*config.meanMultiplier)}, SD ${format(config.revisionSd*config.sdMultiplier)}</span>`;
 }
 function statsTable(p,rows){
- return `<table class="type-stats" aria-label="${escape(p.name)} Average and Star researcher statistics"><thead><tr><th scope="col">Measure</th>${p.types.map((type,i)=>`<th scope="col" class="type-${type.key}"><span class="type-swatch" style="background:${typeColors[i]}"></span>${type.label}</th>`).join('')}</tr></thead><tbody>${rows.map((row,i)=>`<tr ${i===0?'class="primary-stat"':''}><th scope="row">${row.label}</th>${p.types.map(type=>`<td class="type-${type.key}" title="${escape(row.title?row.title(type):row.value(type))}">${row.value(type)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+ return `<table class="type-stats" aria-label="${escape(p.name)} Average and Alternative researcher statistics"><thead><tr><th scope="col">Measure</th>${p.types.map((type,i)=>`<th scope="col" class="type-${type.key}"><span class="type-swatch" style="background:${typeColors[i]}"></span>${type.label}</th>`).join('')}</tr></thead><tbody>${rows.map((row,i)=>`<tr ${i===0?'class="primary-stat"':''}><th scope="row">${row.label}</th>${p.types.map(type=>`<td class="type-${type.key}" title="${escape(row.title?row.title(type):row.value(type))}">${row.value(type)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 }
 function classificationSection(p,index,config){
  const rows=[{label:'Mean level',value:t=>t.stats.classification.mean.toFixed(2)},{label:'Standard deviation',value:t=>t.stats.classification.sd.toFixed(2)},{label:'Assessments',value:t=>t.stats.classification.total.toLocaleString()}];
  return `<section class="outcome-section classification-section"><h4>Review classification · levels 1–5</h4>${statsTable(p,rows)}<div class="chart" data-metric="classification" data-policy-index="${index}"></div><p class="chart-note">${config.trials.toLocaleString()} histories × ${config.years} years per type. SD is in review levels.</p></section>`;
 }
 function comparisonSection(p,config,salary=false){
- const c=salary?p.salaryComparison:p.comparison,labels=['Star > Average','Tie','Average > Star'],keys=['higher','tied','lower'];
- const title=salary?'Star ends with a higher salary':'Star receives a higher evaluation over a year';
+ const c=salary?p.salaryComparison:p.comparison,labels=['Alternative > Average','Tie','Average > Alternative'],keys=['higher','tied','lower'];
+ const title=salary?'Alternative ends with a higher salary':'Alternative receives a higher evaluation over a year';
  const unit=salary?'researcher pairs':'annual review pairs';
  return `<section class="evaluation-comparison ${salary?'salary-comparison':''}" aria-label="${escape(p.name)} ${salary?'final salary':'evaluation'} comparison"><h4>${title}</h4><div class="comparison-value">${pct(c.higherShare*100)}</div><div class="comparison-bar" aria-hidden="true">${keys.map(key=>`<span class="comparison-${key}" style="width:${c[key+'Share']*100}%"></span>`).join('')}</div><dl class="comparison-breakdown">${keys.map((key,i)=>`<div><dt>${labels[i]}</dt><dd title="${c[key].toLocaleString()} ${unit}">${pct(c[key+'Share']*100)}</dd></div>`).join('')}</dl><p class="chart-note">${salary?`Final annual salary at year ${config.years} · `:''}${c.total.toLocaleString()} ${unit}. Ties do not count as higher.</p></section>`;
 }
@@ -68,7 +68,7 @@ function salarySection(p,index,config,key){
 }
 function renderResults(){
  const {results,config,researchers}=lastRun;$('policy-results').style.setProperty('--policy-count',results.length);
- $('policy-results').innerHTML=results.map((p,index)=>`<article class="result-column" style="--policy-color:${p.color}" aria-label="${escape(p.name)} results"><header class="result-heading"><h3><span class="result-letter">${String.fromCharCode(65+index)}</span>${escape(p.name)}</h3><p>${p.window===1?'Current-year totals':`${p.window}-year rolling totals`} · Annual salary review</p><div class="type-legend">${p.types.map((type,i)=>`<span><i class="type-swatch" style="background:${typeColors[i]}"></i>${type.label}${i?` · ${config.highMultiplier}× mean & SD`:''}</span>`).join('')}</div></header>${comparisonSection(p,config)}${classificationSection(p,index,config)}<section class="final-salary-group" aria-label="${escape(p.name)} final salary comparison and distribution">${comparisonSection(p,config,true)}${salarySection(p,index,config,'ending')}</section>${salarySection(p,index,config,'cumulative')}</article>`).join('');
+ $('policy-results').innerHTML=results.map((p,index)=>`<article class="result-column" style="--policy-color:${p.color}" aria-label="${escape(p.name)} results"><header class="result-heading"><h3><span class="result-letter">${String.fromCharCode(65+index)}</span>${escape(p.name)}</h3><p>${p.window===1?'Current-year totals':`${p.window}-year rolling totals`} · Annual salary review</p><div class="type-legend">${p.types.map((type,i)=>`<span><i class="type-swatch" style="background:${typeColors[i]}"></i>${type.label}${i?` · ${config.meanMultiplier}× mean · ${config.sdMultiplier}× SD`:''}</span>`).join('')}</div></header>${comparisonSection(p,config)}${classificationSection(p,index,config)}<section class="final-salary-group" aria-label="${escape(p.name)} final salary comparison and distribution">${comparisonSection(p,config,true)}${salarySection(p,index,config,'ending')}</section>${salarySection(p,index,config,'cumulative')}</article>`).join('');
  $('count-model-description').textContent=researchers.map(t=>`${t.label}: publications use the ${t.modelName.toLowerCase()}; R&Rs use the ${t.revisionModelName.toLowerCase()}.`).join(' ');
  renderCharts();
 }
@@ -83,7 +83,7 @@ function renderCharts(){
    const pi=+container.dataset.policyIndex,p=results[pi],format=metric==='ending'?pct:money;
    const chartWidth=Math.max(230,container.clientWidth),chartHeight=235,left=39,right=6,top=27,bottom=44,plotWidth=chartWidth-left-right,plotHeight=chartHeight-top-bottom,slot=plotWidth/bins;
    const y=value=>top+plotHeight*(1-value/yMax),svg=[],metricLabel=discrete?'review levels':metric==='ending'?'final salary growth':'total earnings';
-   const description=discrete?p.types.map((t,i)=>`${t.label}: ${t.levelCounts.map((count,b)=>`level ${b+1} ${(count/denominator*100).toFixed(1)}%`).join(', ')}`).join('; '):'Average and Star researchers use the same bins and scales across policies.';
+   const description=discrete?p.types.map((t,i)=>`${t.label}: ${t.levelCounts.map((count,b)=>`level ${b+1} ${(count/denominator*100).toFixed(1)}%`).join(', ')}`).join('; '):'Average and Alternative researchers use the same bins and scales across policies.';
    svg.push(`<svg viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${escape(p.name)}: ${metricLabel} histogram. ${escape(description)}"><text x="${left}" y="13" class="axis-caption">Share of ${discrete?'annual reviews':'histories'}</text>`);
    for(let i=0;i<=4;i++){const value=yMax*i/4,pos=y(value);svg.push(`<line x1="${left}" x2="${chartWidth-right}" y1="${pos}" y2="${pos}" stroke="#e7ecf3" ${i?'stroke-dasharray="3 4"':''}/><text x="${left-7}" y="${pos+4}" text-anchor="end">${value%1?value.toFixed(1):value}%</text>`);}
    for(let b=0;b<bins;b++)for(let type=0;type<2;type++){
@@ -107,4 +107,4 @@ function renderCharts(){
  }
 }
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(renderCharts,100);});
-renderPolicies();updateHighSummary();run();
+renderPolicies();updateAlternativeSummary();run();
